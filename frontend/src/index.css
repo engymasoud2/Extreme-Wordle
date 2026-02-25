@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Resets ──────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Flash Whiteout Overlay ──────────────────────────────── */
+/* The whiteout layer uses CSS transitions for smooth fading
+   controlled by requestAnimationFrame in the FlashOverlay
+   component. This avoids seizure-inducing instant flips. */
+.whiteout-overlay {
+  transition: opacity 0.8s ease-in-out;
+}
+
+/* ── Tile Flip Animation ─────────────────────────────────── */
+.tile-flip {
+  animation: flip 0.6s ease-in-out;
+}
+
+/* ── Board Perspective for 3D flip ───────────────────────── */
+.board-perspective {
+  perspective: 600px;
+}
