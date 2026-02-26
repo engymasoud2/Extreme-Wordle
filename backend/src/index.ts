@@ -25,6 +25,8 @@ async function main(): Promise<void> {
   const app = express();
 
   // ── Global Middleware ─────────────────────────────────────
+  console.log(`[CORS] Allowing origin: ${config.server.corsOrigin}`);
+  
   app.use(
     cors({
       origin: config.server.corsOrigin,
