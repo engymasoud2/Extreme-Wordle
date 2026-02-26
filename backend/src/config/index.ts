@@ -1,5 +1,10 @@
 import dotenv from "dotenv";
-dotenv.config();
+
+// Only load .env file if DATABASE_URL is not already set (local dev)
+// In production (Render), environment variables are injected directly
+if (!process.env.DATABASE_URL) {
+  dotenv.config();
+}
 
 /**
  * Centralized application configuration.
@@ -9,11 +14,17 @@ dotenv.config();
 export const config = {
   /** PostgreSQL connection settings */
   pg: {
+    /** If DATABASE_URL is set (Render, Heroku, etc.) use it directly */
+    connectionString: process.env.DATABASE_URL || undefined,
     host: process.env.PG_HOST || "localhost",
     port: parseInt(process.env.PG_PORT || "5432", 10),
     user: process.env.PG_USER || "wordle_admin",
     password: process.env.PG_PASSWORD || "changeme",
     database: process.env.PG_DATABASE || "extreme_wordle",
+    /** Render requires SSL for external connections */
+    ssl: process.env.DATABASE_URL
+      ? { rejectUnauthorized: false }
+      : undefined,
   },
 
   /** Redis connection URL */
@@ -30,5 +41,7 @@ export const config = {
   server: {
     port: parseInt(process.env.PORT || "3001", 10),
     nodeEnv: process.env.NODE_ENV || "development",
+    /** Allowed CORS origin (your GitHub Pages URL) */
+    corsOrigin: process.env.CORS_ORIGIN || "*",
   },
 } as const;
