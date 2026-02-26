@@ -36,7 +36,7 @@ const MODES: ModeInfo[] = [
     mode: "COLORBLIND",
     title: "Colorblind",
     description:
-      "No colour feedback at all — every tile looks the same. 8 guesses, pure deduction.",
+      "No colour feedback at all -> every tile looks the same. 8 guesses, pure deduction.",
     icon: "🔲",
     wordLength: 5,
     maxGuesses: 8,
@@ -66,7 +66,7 @@ const MODES: ModeInfo[] = [
     mode: "GUESS_THE_REST",
     title: "Guess the Rest",
     description:
-      "6-letter words with obfuscated colours — tiles show random hex colours instead of green/yellow/grey. Deduce the pattern!",
+      "6-letter words with obfuscated colours -> tiles show random hex colours instead of green/yellow/grey. Deduce the pattern!",
     icon: "🎨",
     wordLength: 6,
     maxGuesses: 6,

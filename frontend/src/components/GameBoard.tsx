@@ -21,6 +21,8 @@ interface SingleBoardProps {
   maxGuesses: number;
   guessesUsed: number;
   label?: string;
+  /** When true, the board is solved and no input row is shown */
+  locked?: boolean;
 }
 
 function SingleBoard({
@@ -30,6 +32,7 @@ function SingleBoard({
   maxGuesses,
   guessesUsed,
   label,
+  locked = false,
 }: SingleBoardProps) {
   const rows: React.ReactNode[] = [];
 
@@ -51,8 +54,8 @@ function SingleBoard({
     );
   }
 
-  // ── Current input row (if the game is still active) ─────
-  if (guessesUsed < maxGuesses && board.length < maxGuesses) {
+  // ── Current input row (if the game is still active and board is not locked) ─────
+  if (!locked && guessesUsed < maxGuesses && board.length < maxGuesses) {
     const inputCells: React.ReactNode[] = [];
     for (let c = 0; c < wordLength; c++) {
       inputCells.push(
@@ -110,23 +113,40 @@ export function GameBoard() {
   const guessesUsed = board.length;
 
   if (mode === "TWIN") {
+    // Detect whether each word has been solved by checking if
+    // any row in the board is a full match (all "correct").
+    const primarySolved = board.some((row) =>
+      row.every((cell) => cell.status === "correct")
+    );
+    const secondarySolved = boardSecondary.some((row) =>
+      row.every((cell) => cell.status === "correct")
+    );
+
+    // Route input exclusively to the unsolved board(s).
+    // If both are unsolved, both show the current input.
+    // If one is solved, only the other shows input.
+    const primaryInput = primarySolved ? "" : currentInput;
+    const secondaryInput = secondarySolved ? "" : currentInput;
+
     return (
       <div className="flex flex-col sm:flex-row gap-8 items-start justify-center">
         <SingleBoard
           board={board}
-          currentInput={currentInput}
+          currentInput={primaryInput}
           wordLength={wordLength}
           maxGuesses={maxGuesses}
           guessesUsed={guessesUsed}
-          label="Word 1"
+          label={`Word 1${primarySolved ? " ✅" : ""}`}
+          locked={primarySolved}
         />
         <SingleBoard
           board={boardSecondary}
-          currentInput={currentInput}
+          currentInput={secondaryInput}
           wordLength={wordLength}
           maxGuesses={maxGuesses}
           guessesUsed={boardSecondary.length}
-          label="Word 2"
+          label={`Word 2${secondarySolved ? " ✅" : ""}`}
+          locked={secondarySolved}
         />
       </div>
     );

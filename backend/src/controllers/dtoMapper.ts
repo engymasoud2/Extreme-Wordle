@@ -19,10 +19,12 @@
  *   GameEngineService.  This mapper strips them all.
  *
  * Colorblind mode:
- *   For COLORBLIND mode, all letter statuses in the board
- *   are replaced with "absent" before being sent to the
- *   client.  The server board retains real statuses so the
- *   engine can detect wins.
+ *   For COLORBLIND mode, exact-match ("correct") statuses
+ *   are downgraded to "present" (yellow) so the player
+ *   knows a letter is in the word but cannot distinguish
+ *   exact vs misplaced.  "present" and "absent" statuses
+ *   are left unchanged.  The server board retains real
+ *   statuses so the engine can detect wins.
  * ==========================================================
  */
 
@@ -54,11 +56,17 @@ function computeTimeRemaining(session: GameSession): number | undefined {
 // ── Board Sanitisation ──────────────────────────────────────
 
 /**
- * Create a colorblind-safe copy of a board where every
- * letter status is replaced with "absent".
+ * Create a colorblind-safe copy of a board where exact
+ * matches ("correct") are suppressed to "absent", but
+ * "present" (yellow / misplaced) feedback is preserved.
  *
- * The client receives no colour hints at all — the tiles
- * look identical regardless of correctness.
+ * This gives the player partial deduction cues (the letter
+ * IS in the word) without revealing exact positions.
+ *
+ * Mapping:
+ *   "correct" → "present"  (letter in word, position hidden)
+ *   "present" → "present"  (unchanged)
+ *   "absent"  → "absent"   (unchanged)
  */
 function sanitizeBoardForColorblind(
   board: GuessResult[][]
@@ -66,7 +74,7 @@ function sanitizeBoardForColorblind(
   return board.map((row) =>
     row.map((cell) => ({
       letter: cell.letter,
-      status: "absent" as const,
+      status: cell.status === "correct" ? "present" as const : cell.status,
     }))
   );
 }
@@ -98,10 +106,13 @@ export function toGameSessionDTO(session: GameSession): GameSessionDTO {
   let board = session.board;
   let boardSecondary = session.boardSecondary;
 
-  // COLORBLIND: strip statuses from any pre-existing board rows
+  // COLORBLIND: strip exact-match statuses from any pre-existing board rows
   if (session.mode === "COLORBLIND") {
     board = sanitizeBoardForColorblind(board);
   }
+
+  // Reveal solution on terminal states
+  const isTerminal = session.status === "LOST" || session.status === "TIMED_OUT";
 
   return {
     sessionId: session.sessionId,
@@ -111,6 +122,8 @@ export function toGameSessionDTO(session: GameSession): GameSessionDTO {
     board,
     boardSecondary,
     timeRemainingMs: computeTimeRemaining(session),
+    ...(isTerminal && { solution: session.targetWord }),
+    ...(isTerminal && session.targetWordSecondary && { solutionSecondary: session.targetWordSecondary }),
   };
 }
 
@@ -122,8 +135,8 @@ export function toGameSessionDTO(session: GameSession): GameSessionDTO {
  * - GUESS_THE_REST: obfuscated (status="obfuscated", hex=<random>)
  *
  * For COLORBLIND mode, we additionally sanitise:
- * - The per-guess `result` array → all "absent"
- * - The cumulative `board` → all "absent"
+ * - The per-guess `result` array → "correct" becomes "present"
+ * - The cumulative `board` → "correct" becomes "present"
  */
 export function toGuessResultDTO(
   processResult: GuessProcessResult
@@ -137,13 +150,15 @@ export function toGuessResultDTO(
   let resultSecondary = clientResultsSecondary;
 
   if (session.mode === "COLORBLIND") {
-    // Strip colours from the latest guess result
+    // Map exact matches to "present" so the player knows the
+    // letter is in the word but cannot distinguish exact vs
+    // misplaced.  Truly absent letters stay "absent".
     result = result.map((r) => ({
       letter: r.letter,
-      status: "absent" as const,
+      status: r.status === "correct" ? "present" as const : r.status,
     }));
 
-    // Strip colours from the cumulative board
+    // Same transformation for the cumulative board
     board = sanitizeBoardForColorblind(board);
   }
 
@@ -162,6 +177,25 @@ export function toGuessResultDTO(
     board = buildObfuscatedBoard(session);
   }
 
+  // Reveal solution and color key on terminal states
+  const isTerminal = session.status === "LOST" || session.status === "TIMED_OUT";
+
+  // GUESS_THE_REST: reveal the color key on game over
+  let colorKey: { exact: string; partial: string; absent: string } | undefined;
+  if (
+    isTerminal &&
+    session.mode === "GUESS_THE_REST" &&
+    session.exactColorHex &&
+    session.partialColorHex &&
+    session.absentColorHex
+  ) {
+    colorKey = {
+      exact: session.exactColorHex,
+      partial: session.partialColorHex,
+      absent: session.absentColorHex,
+    };
+  }
+
   return {
     sessionId: session.sessionId,
     mode: session.mode,
@@ -174,6 +208,9 @@ export function toGuessResultDTO(
     message,
     timeRemainingMs: computeTimeRemaining(session),
     isMercyAvailable: isMercyAvailable || undefined,
+    ...(isTerminal && { solution: session.targetWord }),
+    ...(isTerminal && session.targetWordSecondary && { solutionSecondary: session.targetWordSecondary }),
+    ...(colorKey && { colorKey }),
   };
 }
 
@@ -185,6 +222,8 @@ export function toMercyResultDTO(
 ): MercyResultDTO {
   const { granted, joke, choices, session, message } = mercyResult;
 
+  const isTerminal = session.status === "LOST" || session.status === "TIMED_OUT";
+
   return {
     sessionId: session.sessionId,
     mode: session.mode,
@@ -194,6 +233,7 @@ export function toMercyResultDTO(
     choices,
     message,
     status: session.status,
+    ...(isTerminal && { solution: session.targetWord }),
   };
 }
 

@@ -139,6 +139,7 @@ function GameOverOverlay() {
 
   const isWin = state.status === "WON";
   const isTimeout = state.status === "TIMED_OUT";
+  const isLoss = !isWin; // LOST or TIMED_OUT
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 animate-fade-in">
@@ -154,11 +155,65 @@ function GameOverOverlay() {
         </h2>
 
         {/* Stats */}
-        <div className="text-gray-400 mb-6 space-y-1 text-sm">
+        <div className="text-gray-400 mb-4 space-y-1 text-sm">
           <p>Mode: {modeLabel(state.mode)}</p>
           <p>Guesses used: {state.board.length}</p>
           {state.message && <p className="text-gray-300">{state.message}</p>}
         </div>
+
+        {/* Reveal target word on loss */}
+        {isLoss && state.solution && (
+          <div className="mb-4 bg-gray-900 rounded-xl px-4 py-3">
+            <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">
+              The word was
+            </p>
+            <p className="text-2xl font-bold tracking-widest text-amber-400">
+              {state.solution}
+            </p>
+            {state.solutionSecondary && (
+              <>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mt-2 mb-1">
+                  Second word
+                </p>
+                <p className="text-2xl font-bold tracking-widest text-amber-400">
+                  {state.solutionSecondary}
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* GUESS_THE_REST: reveal colour key on loss */}
+        {isLoss && state.colorKey && (
+          <div className="mb-4 bg-gray-900 rounded-xl px-4 py-3">
+            <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">
+              Colour Key
+            </p>
+            <div className="flex justify-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-5 h-5 rounded"
+                  style={{ backgroundColor: state.colorKey.exact }}
+                />
+                <span className="text-emerald-400">Exact</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-5 h-5 rounded"
+                  style={{ backgroundColor: state.colorKey.partial }}
+                />
+                <span className="text-amber-400">Misplaced</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-5 h-5 rounded"
+                  style={{ backgroundColor: state.colorKey.absent }}
+                />
+                <span className="text-gray-400">Absent</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 justify-center">

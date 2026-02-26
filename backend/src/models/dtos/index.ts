@@ -43,6 +43,9 @@ export interface GameSessionDTO {
   board: GuessResult[][];
   boardSecondary?: GuessResult[][];
   timeRemainingMs?: number;
+  /** Revealed only on LOST / TIMED_OUT */
+  solution?: string;
+  solutionSecondary?: string;
 }
 
 /**
@@ -62,6 +65,11 @@ export interface GuessResultDTO {
   message: string;
   timeRemainingMs?: number;
   isMercyAvailable?: boolean;
+  /** Revealed only on LOST / TIMED_OUT */
+  solution?: string;
+  solutionSecondary?: string;
+  /** GUESS_THE_REST colour key — revealed only on game over */
+  colorKey?: { exact: string; partial: string; absent: string };
 }
 
 /**
@@ -78,4 +86,6 @@ export interface MercyResultDTO {
   choices?: string[];
   message: string;
   status: GameStatus;
+  /** Revealed only when mercy denied (LOST) */
+  solution?: string;
 }

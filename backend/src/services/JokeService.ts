@@ -203,9 +203,19 @@ export class JokeService {
                 punchline: parsed.joke.substring(qMark + 1).trim(),
               });
             } else {
-              // Fallback: use the whole joke as question,
-              // player must type the whole thing back.
-              resolve({ question: parsed.joke, punchline: parsed.joke });
+              // No "?" — try splitting on the last comma so
+              // the setup and punchline are distinct.
+              const lastComma = parsed.joke.lastIndexOf(",");
+              if (lastComma > 0 && lastComma < parsed.joke.length - 1) {
+                resolve({
+                  question: parsed.joke.substring(0, lastComma + 1).trim(),
+                  punchline: parsed.joke.substring(lastComma + 1).trim(),
+                });
+              } else {
+                // No useful delimiter — fall back to a local joke
+                // that has a proper question/punchline split.
+                resolve(this.getRandomFallback());
+              }
             }
           } catch {
             reject(new Error("Failed to parse joke API response"));

@@ -170,6 +170,9 @@ export class GameEngineService {
     // Persist to Redis
     await this.sessionCache.set(sessionId, session);
 
+    // ── DEBUG: log the target word(s) for testing ─────────
+    console.log(`[DEBUG] New ${mode} game | session=${sessionId} | target="${targetWord}"${targetWordSecondary ? ` | target2="${targetWordSecondary}"` : ""}`);
+
     return { session };
   }
 
@@ -210,10 +213,25 @@ export class GameEngineService {
       );
     }
 
-    // Validate against dictionary
-    const isValid = await this.dictionaryRepo.isValidWord(normalizedGuess);
+    // Validate against dictionary (wrapped in try-catch for resilience)
+    let isValid: boolean;
+    try {
+      isValid = await this.dictionaryRepo.isValidWord(normalizedGuess);
+    } catch (err) {
+      console.error("[GameEngine] Dictionary validation failed:", (err as Error).message);
+      throw new GameError("Dictionary service unavailable. Please try again.", 503);
+    }
     if (!isValid) {
       throw new GameError("Not a valid word.", 400);
+    }
+
+    // Re-check timer for timed modes — the dictionary lookup
+    // may have taken long enough for the deadline to pass.
+    if (session.endsAt && Date.now() >= new Date(session.endsAt).getTime()) {
+      session.status = "TIMED_OUT";
+      await this.sessionCache.set(sessionId, session);
+      await this.safeRecordStats(session);
+      throw new GameError("Time's up!", 410);
     }
 
     // ── Evaluate ──────────────────────────────────────────
@@ -257,8 +275,8 @@ export class GameEngineService {
       session.status = endStatus;
       message = this.statusMessage(endStatus);
 
-      // Record stats for terminal states
-      await this.recordStats(session);
+      // Record stats for terminal states (non-blocking)
+      await this.safeRecordStats(session);
     } else if (
       session.mode === "MERCY" &&
       session.guessesUsed >= session.maxGuesses &&
@@ -332,9 +350,22 @@ export class GameEngineService {
       );
     }
 
+    // Guard against missing punchline (corrupt/expired session)
+    if (!session.mercyPunchline) {
+      session.status = "LOST";
+      await this.sessionCache.set(sessionId, session);
+      await this.safeRecordStats(session);
+      return {
+        granted: false,
+        joke: session.mercyJoke ?? "(joke unavailable)",
+        session,
+        message: "Something went wrong with the joke. Game over!",
+      };
+    }
+
     const isCorrect = this.jokeService.validateAnswer(
       jokeAnswer,
-      session.mercyPunchline!
+      session.mercyPunchline
     );
 
     if (isCorrect) {
@@ -352,7 +383,7 @@ export class GameEngineService {
       // Wrong answer → game over
       session.status = "LOST";
       await this.sessionCache.set(sessionId, session);
-      await this.recordStats(session);
+      await this.safeRecordStats(session);
 
       return {
         granted: false,
@@ -382,7 +413,7 @@ export class GameEngineService {
     if (Date.now() >= new Date(session.endsAt).getTime()) {
       session.status = "TIMED_OUT";
       await this.sessionCache.set(sessionId, session);
-      await this.recordStats(session);
+      await this.safeRecordStats(session);
     }
   }
 
@@ -429,6 +460,21 @@ export class GameEngineService {
       throw new GameError(`Unknown game mode: ${mode}`, 400);
     }
     return strategy;
+  }
+
+  /**
+   * Safely record stats — wraps recordStats in a try-catch
+   * so a database failure never crashes the game response.
+   */
+  private async safeRecordStats(session: GameSession): Promise<void> {
+    try {
+      await this.recordStats(session);
+    } catch (err) {
+      console.error(
+        "[GameEngine] Failed to record stats (non-fatal):",
+        (err as Error).message
+      );
+    }
   }
 
   /**

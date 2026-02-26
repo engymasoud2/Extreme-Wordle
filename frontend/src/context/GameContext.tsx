@@ -53,6 +53,11 @@ export interface GameState {
   loading: boolean;
   error: string | null;
   wordLength: number;
+  /** Revealed on LOST / TIMED_OUT */
+  solution: string | null;
+  solutionSecondary: string | null;
+  /** GUESS_THE_REST colour key — revealed on game over */
+  colorKey: { exact: string; partial: string; absent: string } | null;
 }
 
 const initialState: GameState = {
@@ -75,6 +80,9 @@ const initialState: GameState = {
   loading: false,
   error: null,
   wordLength: 5,
+  solution: null,
+  solutionSecondary: null,
+  colorKey: null,
 };
 
 // ── Actions ─────────────────────────────────────────────────
@@ -175,10 +183,12 @@ function reducer(state: GameState, action: Action): GameState {
 
     case "GUESS_RESULT": {
       const { dto } = action;
-      // Don't update keyboard for COLORBLIND (statuses are all "absent")
-      // or GUESS_THE_REST (statuses are all "obfuscated")
-      const skipKeyboard =
-        state.mode === "COLORBLIND" || state.mode === "GUESS_THE_REST";
+      // Update keyboard for all modes EXCEPT GUESS_THE_REST
+      // (statuses are all "obfuscated" — no info to show).
+      // For COLORBLIND, the server now sends "present" for
+      // misplaced letters and "absent" for exact matches, so
+      // we DO update the keyboard — but "correct" never appears.
+      const skipKeyboard = state.mode === "GUESS_THE_REST";
       const newKeyboard = skipKeyboard
         ? state.keyboardMap
         : mergeKeyboard(state.keyboardMap, dto.result);
@@ -201,6 +211,9 @@ function reducer(state: GameState, action: Action): GameState {
         timeRemainingMs: dto.timeRemainingMs ?? state.timeRemainingMs,
         timerDeadline: deadline,
         isMercyAvailable: dto.isMercyAvailable ?? false,
+        solution: dto.solution ?? state.solution,
+        solutionSecondary: dto.solutionSecondary ?? state.solutionSecondary,
+        colorKey: dto.colorKey ?? state.colorKey,
       };
     }
 
@@ -220,6 +233,7 @@ function reducer(state: GameState, action: Action): GameState {
         maxGuesses: newMaxGuesses,
         status: dto.status,
         isMercyAvailable: !dto.mercyGranted && dto.status === "ACTIVE",
+        solution: dto.solution ?? state.solution,
       };
     }
 
