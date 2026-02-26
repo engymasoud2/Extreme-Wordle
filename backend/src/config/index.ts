@@ -6,6 +6,13 @@ if (!process.env.DATABASE_URL) {
   dotenv.config();
 }
 
+// Debug: Log DATABASE_URL presence (hide actual value for security)
+if (process.env.DATABASE_URL) {
+  console.log("[Config] DATABASE_URL is present in environment");
+} else {
+  console.warn("[Config] DATABASE_URL is NOT set - will use fallback host/port");
+}
+
 /**
  * Centralized application configuration.
  * All environment variables are validated and exported from here.
