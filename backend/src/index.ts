@@ -25,7 +25,12 @@ async function main(): Promise<void> {
   const app = express();
 
   // ── Global Middleware ─────────────────────────────────────
-  app.use(cors());
+  app.use(
+    cors({
+      origin: config.server.corsOrigin,
+      credentials: true,
+    })
+  );
   app.use(express.json());
 
   // ── Health Check ──────────────────────────────────────────
@@ -38,9 +43,9 @@ async function main(): Promise<void> {
     await pool.query("SELECT 1");
     console.log("[PostgreSQL] Connection verified.");
   } catch (err) {
-    console.warn(
-      "[PostgreSQL] Could not connect — some features will be unavailable:",
-      (err as Error).message
+    console.error(
+      "[PostgreSQL] Could not connect — ERROR:",
+      err
     );
   }
 
