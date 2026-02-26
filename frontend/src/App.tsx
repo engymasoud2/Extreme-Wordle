@@ -4,7 +4,7 @@
  * ==========================================================
  *
  * Routes between HomeScreen and GameScreen based on whether
- * a session is active. Wraps everything in GameProvider.
+ * a session is active. Wraps everything in GameProvider..
  * ==========================================================
  */
 
